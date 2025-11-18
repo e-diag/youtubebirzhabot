@@ -8,6 +8,7 @@ import (
 	"time"
 	"youtube-market/internal/db"
 	"youtube-market/internal/metrics"
+	"youtube-market/internal/middleware"
 	"youtube-market/internal/models"
 
 	"github.com/gin-gonic/gin"

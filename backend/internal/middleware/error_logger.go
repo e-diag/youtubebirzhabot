@@ -97,11 +97,6 @@ func CaptureError(c *gin.Context, err error, tags map[string]string) {
 
 // CaptureMessage логирует сообщение
 func CaptureMessage(c *gin.Context, message string, level logger.LogLevel) {
-	userID := ""
-	if uid, exists := c.Get("user_id"); exists {
-		userID = uid.(string)
-	}
-
 	context := map[string]interface{}{
 		"path":   c.Request.URL.Path,
 		"method": c.Request.Method,
