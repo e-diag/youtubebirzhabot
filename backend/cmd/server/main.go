@@ -128,15 +128,6 @@ func setupRouter() *gin.Engine {
 	r.GET("/privacy", servePrivacy)
 	r.HEAD("/privacy", servePrivacy)
 
-	// Launch screen icon для Telegram Mini App
-	r.GET("/launch_512x512.svg", func(c *gin.Context) {
-		if _, err := os.Stat("./static/launch_512x512.svg"); os.IsNotExist(err) {
-			c.Status(http.StatusNotFound)
-			return
-		}
-		c.File("./static/launch_512x512.svg")
-	})
-
 	// Metrics endpoint (без аутентификации для мониторинга)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 

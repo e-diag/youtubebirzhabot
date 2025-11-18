@@ -50,7 +50,6 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		// Исключаем статические ресурсы, метрики и health check из rate limiting
 		path := c.Request.URL.Path
 		if path == "/metrics" || path == "/health" || 
-		   path == "/launch_512x512.svg" ||
 		   path == "/terms" || path == "/privacy" ||
 		   path == "/" || 
 		   len(path) > 7 && path[:7] == "/static" ||

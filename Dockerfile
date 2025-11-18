@@ -34,9 +34,6 @@ RUN go version
 # Копируем go.mod и go.sum
 COPY backend/go.mod backend/go.sum ./
 
-# Проверяем, что go.sum синхронизирован (если нет - обновим)
-RUN go mod verify || go mod tidy
-
 # Загружаем зависимости
 RUN go mod download
 
@@ -59,10 +56,9 @@ WORKDIR /app
 RUN apk --no-cache add ca-certificates
 COPY --from=backend-builder /app/backend/server .
 COPY --from=backend-builder /app/backend/static ./static
-# Копируем дополнительные статические файлы (terms.html, privacy.html, launch icon) из корня проекта
+# Копируем дополнительные статические файлы (terms.html, privacy.html) из корня проекта
 COPY static/terms.html ./static/
 COPY static/privacy.html ./static/
-COPY launch_512x512.svg ./static/
 # Устанавливаем права доступа
 RUN chmod -R 755 /app/static
 # Финальная проверка
