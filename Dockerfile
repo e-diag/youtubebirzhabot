@@ -22,7 +22,7 @@ RUN ls -la dist/ || (echo "ERROR: Frontend build failed!" && exit 1)
 RUN test -f dist/index.html || (echo "ERROR: index.html not found in dist!" && exit 1)
 
 # 2. Бэкенд
-FROM golang:1.21-alpine AS backend-builder
+FROM golang:1.23-alpine AS backend-builder
 WORKDIR /app/backend
 
 # Устанавливаем git
@@ -33,6 +33,9 @@ RUN go version
 
 # Копируем go.mod и go.sum
 COPY backend/go.mod backend/go.sum ./
+
+# Синхронизируем зависимости (обновляет go.sum если нужно)
+RUN go mod tidy
 
 # Загружаем зависимости
 RUN go mod download
