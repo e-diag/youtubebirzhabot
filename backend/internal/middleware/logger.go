@@ -2,12 +2,14 @@ package middleware
 
 import (
 	"log"
+	"strconv"
 	"time"
+	"youtube-market/internal/metrics"
 
 	"github.com/gin-gonic/gin"
 )
 
-// SafeLoggerMiddleware логирует запросы без PII (персональных данных)
+// SafeLoggerMiddleware логирует запросы без PII (персональных данных) и собирает метрики
 func SafeLoggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -24,6 +26,11 @@ func SafeLoggerMiddleware() gin.HandlerFunc {
 
 		latency := time.Since(start)
 		statusCode := c.Writer.Status()
+		statusStr := strconv.Itoa(statusCode)
+
+		// Собираем метрики
+		metrics.HTTPRequestsTotal.WithLabelValues(method, path, statusStr).Inc()
+		metrics.HTTPRequestDuration.WithLabelValues(method, path).Observe(latency.Seconds())
 
 		// Логируем только безопасные данные
 		if userID != nil {

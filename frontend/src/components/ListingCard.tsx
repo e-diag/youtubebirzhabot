@@ -216,7 +216,7 @@ export function ListingCard({ listing, footer, showExpiryDate = false, showFullD
 
       <div className="p-4 space-y-3">
         <div className="flex flex-col gap-1">
-          <h3 className="line-clamp-1 text-base font-semibold">{listing.title}</h3>
+          <h3 className="text-base font-semibold break-words">{listing.title}</h3>
           <div className="relative">
             <p
               ref={descriptionRef}

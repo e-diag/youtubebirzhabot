@@ -4,7 +4,33 @@
 
 ## 🚀 Быстрый старт
 
-### Вариант 1: Docker Compose (рекомендуется)
+### Вариант 1: CI/CD с GitHub Actions (рекомендуется для продакшена)
+
+Проект настроен с автоматическим CI/CD через GitHub Actions:
+
+1. **Автоматическая сборка и публикация:**
+   - При push в `main`/`master` автоматически собирается Docker образ
+   - Образ публикуется в GitHub Packages
+   - Автоматически деплоится на production сервер
+
+2. **Ручной деплой:**
+   - Перейдите в Actions → Manual Deploy
+   - Выберите окружение и тег образа
+   - Нажмите "Run workflow"
+
+3. **Локальный деплой через скрипт:**
+   ```bash
+   export SERVER_HOST=your-server.com
+   export SERVER_USER=root
+   export SERVER_PATH=/root/youtube-market
+   export GITHUB_TOKEN=your_github_token
+   
+   ./scripts/deploy.sh [tag]
+   ```
+
+**Настройка:** См. [.github/workflows/README.md](.github/workflows/README.md)
+
+### Вариант 2: Docker Compose (локальная разработка)
 
 ```bash
 # 1. Клонируйте репозиторий
@@ -113,6 +139,8 @@ YouTube-Bot/
 | `GIN_MODE` | Режим Gin (release/debug) | Нет |
 | `BOT_TOKEN` | Telegram Bot Token | Нет |
 | `MANAGER_ID` | Telegram User ID менеджера | Нет |
+| `NOTIFY_CHAT_ID` | Telegram Chat ID для уведомлений об ошибках | Нет |
+| `REDIS_URL` | Redis connection string | Нет |
 
 ## 📡 API Endpoints
 

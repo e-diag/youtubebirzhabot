@@ -43,27 +43,9 @@ services:
       - '--storage.tsdb.path=/prometheus'
     restart: unless-stopped
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
-    depends_on:
-      - prometheus
-    restart: unless-stopped
-
   app:
-    # Для локальной разработки используем build, для продакшена - image из GitHub Packages
-    # build: .
-    # image: ghcr.io/owner/repo:latest  # Раскомментируйте для использования образа из GitHub Packages
-    build: .
+    # Используем образ из GitHub Packages вместо локальной сборки
+    image: ghcr.io/${GITHUB_REPOSITORY:-owner/repo}:latest
     ports:
       - "8080:8080"
     env_file:
@@ -75,18 +57,15 @@ services:
       GIN_MODE: release
       BOT_TOKEN: ${BOT_TOKEN:-}
       MANAGER_ID: ${MANAGER_ID:-}
-      NOTIFY_CHAT_ID: ${NOTIFY_CHAT_ID:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./logs:/var/log/youtube-market
     restart: unless-stopped
 
 volumes:
   redis_data:
   prometheus_data:
-  grafana_data:
 

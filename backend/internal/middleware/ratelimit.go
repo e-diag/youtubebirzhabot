@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"youtube-market/internal/metrics"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -42,9 +43,22 @@ func InitRedis() error {
 	return nil
 }
 
-// RateLimitMiddleware ограничивает количество запросов: 10 запросов в минуту на IP
+// RateLimitMiddleware ограничивает количество запросов: 60 запросов в минуту на IP
+// Исключает статические ресурсы и метрики из лимита
 func RateLimitMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Исключаем статические ресурсы, метрики и health check из rate limiting
+		path := c.Request.URL.Path
+		if path == "/metrics" || path == "/health" || 
+		   path == "/launch_512x512.svg" ||
+		   path == "/terms" || path == "/privacy" ||
+		   path == "/" || 
+		   len(path) > 7 && path[:7] == "/static" ||
+		   len(path) > 7 && path[:7] == "/assets" {
+			c.Next()
+			return
+		}
+
 		if rdb == nil {
 			// Если Redis не инициализирован, пропускаем проверку
 			c.Next()
@@ -70,8 +84,10 @@ func RateLimitMiddleware() gin.HandlerFunc {
 			rdb.Expire(ctx, key, time.Minute)
 		}
 
-		// Проверяем лимит (10 запросов в минуту)
-		if count > 10 {
+		// Проверяем лимит (60 запросов в минуту вместо 10)
+		if count > 60 {
+			// Собираем метрику rate limit
+			metrics.RateLimitHits.WithLabelValues(ip).Inc()
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error": "rate limit exceeded",
 			})

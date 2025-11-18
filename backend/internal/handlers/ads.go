@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"youtube-market/internal/db"
+	"youtube-market/internal/metrics"
 	"youtube-market/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +17,7 @@ import (
 const maxPremiumActiveAds = 3
 
 func GetAds(c *gin.Context) {
+	start := time.Now()
 	now := time.Now()
 
 	category := strings.TrimSpace(c.Query("cat"))
@@ -46,7 +47,14 @@ func GetAds(c *gin.Context) {
 
 	var filtered []models.Ad
 	if err := filteredQuery.Find(&filtered).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch ads"})
+		log.Printf("GetAds: ошибка БД при получении объявлений: %v", err)
+		middleware.CaptureError(c, err, map[string]string{
+			"handler": "GetAds",
+			"query":   "filtered",
+		})
+		metrics.APIRequestsTotal.WithLabelValues("ads", "500").Inc()
+		metrics.ErrorsTotal.WithLabelValues("database", "ads").Inc()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "не удалось загрузить объявления. Попробуйте позже."})
 		return
 	}
 
@@ -68,7 +76,14 @@ func GetAds(c *gin.Context) {
 	premiumQuery = premiumQuery.Order("updated_at DESC")
 
 	if err := premiumQuery.Find(&premium).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch premium ads"})
+		log.Printf("GetAds: ошибка БД при получении премиум объявлений: %v", err)
+		middleware.CaptureError(c, err, map[string]string{
+			"handler": "GetAds",
+			"query":   "premium",
+		})
+		metrics.APIRequestsTotal.WithLabelValues("ads", "500").Inc()
+		metrics.ErrorsTotal.WithLabelValues("database", "ads").Inc()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "не удалось загрузить объявления. Попробуйте позже."})
 		return
 	}
 
@@ -82,14 +97,22 @@ func GetAds(c *gin.Context) {
 		response = append(response, buildAdView(ad))
 	}
 
+	// Собираем метрики
+	duration := time.Since(start)
+	metrics.APIRequestsTotal.WithLabelValues("ads", "200").Inc()
+	metrics.APIReponseTime.WithLabelValues("ads").Observe(duration.Seconds())
+
 	c.JSON(http.StatusOK, response)
 }
 
 func GetMyAds(c *gin.Context) {
+	start := time.Now()
 	userIDStr := c.Query("user_id")
 	log.Printf("GetMyAds: получен запрос с user_id=%s", userIDStr)
 	if userIDStr == "" {
 		log.Printf("GetMyAds: ошибка - user_id не указан")
+		metrics.APIRequestsTotal.WithLabelValues("myads", "400").Inc()
+		metrics.ErrorsTotal.WithLabelValues("validation", "myads").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id parameter is required"})
 		return
 	}
@@ -98,6 +121,7 @@ func GetMyAds(c *gin.Context) {
 	// ClientID совпадает с user_id из Telegram
 	// Также ищем по UserID на случай если client_id не совпадает
 	var ads []models.Ad
+	queryStart := time.Now()
 	query := db.DB.Where("client_id = ?", userIDStr)
 
 	// Также пробуем найти по user_id (на случай если client_id не установлен правильно)
@@ -109,9 +133,13 @@ func GetMyAds(c *gin.Context) {
 	if err := query.
 		Order(gorm.Expr("CASE WHEN status = ? THEN 0 WHEN status = ? THEN 1 ELSE 2 END, updated_at DESC", models.AdStatusActive, models.AdStatusExpired)).
 		Find(&ads).Error; err != nil {
+		metrics.APIRequestsTotal.WithLabelValues("myads", "500").Inc()
+		metrics.ErrorsTotal.WithLabelValues("database", "myads").Inc()
+		metrics.DatabaseQueryDuration.WithLabelValues("select").Observe(time.Since(queryStart).Seconds())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch ads"})
 		return
 	}
+	metrics.DatabaseQueryDuration.WithLabelValues("select").Observe(time.Since(queryStart).Seconds())
 
 	log.Printf("GetMyAds: найдено %d объявлений для user_id=%s", len(ads), userIDStr)
 	for _, ad := range ads {
@@ -122,6 +150,11 @@ func GetMyAds(c *gin.Context) {
 	for _, ad := range ads {
 		response = append(response, buildAdView(ad))
 	}
+
+	// Собираем метрики
+	duration := time.Since(start)
+	metrics.APIRequestsTotal.WithLabelValues("myads", "200").Inc()
+	metrics.APIReponseTime.WithLabelValues("myads").Observe(duration.Seconds())
 
 	c.JSON(http.StatusOK, response)
 }
