@@ -60,7 +60,7 @@ jobs:
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ steps.image_tag.outputs.tag }}
         run: |
-          ssh $SERVER_USER@$SERVER_HOST << EOF
+          ssh -T $SERVER_USER@$SERVER_HOST bash -s << 'EOF'
             set -e
             cd $SERVER_PATH || exit 1
             

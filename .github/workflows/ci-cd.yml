@@ -101,7 +101,7 @@ jobs:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
         run: |
-          ssh $SERVER_USER@$SERVER_HOST << 'EOF'
+          ssh -T $SERVER_USER@$SERVER_HOST bash -s << 'EOF'
             set -e
             cd $SERVER_PATH || exit 1
             
@@ -119,9 +119,6 @@ jobs:
               # Update image reference
               sed -i "s|build: \.|image: $REGISTRY/$IMAGE_NAME:latest|g" docker-compose.yml
             fi
-            
-            # Pull latest code (optional, if using git on server)
-            # git pull origin main || true
             
             # Restart services
             docker compose pull
