@@ -34,6 +34,9 @@ RUN go version
 # Копируем go.mod и go.sum
 COPY backend/go.mod backend/go.sum ./
 
+# Проверяем, что go.sum синхронизирован (если нет - обновим)
+RUN go mod verify || go mod tidy
+
 # Загружаем зависимости
 RUN go mod download
 
