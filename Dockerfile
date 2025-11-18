@@ -31,11 +31,8 @@ RUN apk add --no-cache git
 # Проверяем версию Go
 RUN go version
 
-# Копируем только go.mod сначала
-COPY backend/go.mod ./
-
-# Синхронизируем зависимости и обновляем go.sum
-RUN go mod tidy
+# Копируем go.mod и go.sum
+COPY backend/go.mod backend/go.sum ./
 
 # Загружаем зависимости
 RUN go mod download
