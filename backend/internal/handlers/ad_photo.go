@@ -101,7 +101,12 @@ func GetAdPhoto(c *gin.Context) {
 		return
 	}
 
-	// Устанавливаем заголовки перед копированием тела
+	// Устанавливаем CORS заголовки для изображений
+	c.Header("Access-Control-Allow-Origin", "*")
+	c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+	c.Header("Cache-Control", "public, max-age=3600") // Кэшируем на 1 час
+
+	// Устанавливаем заголовки из ответа Telegram API
 	for k, values := range resp.Header {
 		if len(values) == 0 {
 			continue

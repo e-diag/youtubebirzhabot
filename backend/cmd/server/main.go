@@ -163,12 +163,14 @@ func setupRouter() *gin.Engine {
 	api.Use(middleware.TMAuthMiddleware())
 	{
 		api.GET("/ads", handlers.GetAds)
-		api.GET("/ads/:id/photo", handlers.GetAdPhoto)
 		api.GET("/myads", handlers.GetMyAds)
 		api.GET("/profile/:username", handlers.GetProfileAds)
 		api.GET("/scammer/:username", handlers.CheckScammer)
 		api.GET("/blacklist", handlers.GetBlacklist)
 	}
+
+	// Photo endpoint - публичный, не требует авторизации (изображения загружаются через <img>)
+	r.GET("/api/ads/:id/photo", handlers.GetAdPhoto)
 
 	return r
 }
