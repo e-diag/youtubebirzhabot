@@ -91,7 +91,7 @@ jobs:
       - name: Test SSH connection
         run: |
           echo "Testing SSH connection to ${{ secrets.SERVER_HOST }}..."
-          timeout 10 ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -T ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} echo "SSH connection successful" || echo "SSH connection failed, but continuing..."
+          timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "echo 'SSH connection successful'" || echo "SSH connection failed, but continuing..."
 
       - name: Add server to known hosts
         run: |
@@ -106,34 +106,18 @@ jobs:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
         run: |
-          ssh -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -T $SERVER_USER@$SERVER_HOST bash -s << 'EOF'
-            set -e
-            cd $SERVER_PATH || exit 1
-            
-            # Login to GitHub Container Registry
-            echo "$GITHUB_TOKEN" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
-            
-            # Pull latest image
-            docker pull $REGISTRY/$IMAGE_NAME:latest || true
-            
-            # Update docker-compose.yml if needed
-            if [ -f docker-compose.yml ]; then
-              # Backup current docker-compose.yml
-              cp docker-compose.yml docker-compose.yml.backup
-              
-              # Update image reference
-              sed -i "s|build: \.|image: $REGISTRY/$IMAGE_NAME:latest|g" docker-compose.yml
-            fi
-            
-            # Restart services
-            docker compose pull
-            docker compose up -d --force-recreate
-            
-            # Clean up old images
-            docker image prune -f
-            
-            echo "Deployment completed successfully!"
-          EOF
+          ssh -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 $SERVER_USER@$SERVER_HOST "set -e && \
+            cd $SERVER_PATH && \
+            echo '$GITHUB_TOKEN' | docker login $REGISTRY -u ${{ github.actor }} --password-stdin && \
+            docker pull $REGISTRY/$IMAGE_NAME:latest || true && \
+            if [ -f docker-compose.yml ]; then \
+              cp docker-compose.yml docker-compose.yml.backup && \
+              sed -i 's|build: \.|image: $REGISTRY/$IMAGE_NAME:latest|g' docker-compose.yml; \
+            fi && \
+            docker compose pull && \
+            docker compose up -d --force-recreate && \
+            docker image prune -f && \
+            echo 'Deployment completed successfully!'"
 
       - name: Health check
         run: |
