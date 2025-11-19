@@ -18,7 +18,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: e-diag/youtubebirzhabot
 
 jobs:
   deploy:
@@ -55,14 +55,6 @@ jobs:
             echo "tag=latest" >> $GITHUB_OUTPUT
           fi
 
-      - name: Convert image name to lowercase
-        id: image_name
-        run: |
-          IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
-          echo "Converting: ${{ env.IMAGE_NAME }} -> $IMAGE_NAME_LOWER"
-          echo "image_name_lower=$IMAGE_NAME_LOWER" >> $GITHUB_OUTPUT
-          echo "Converted image name: $IMAGE_NAME_LOWER"
-
       - name: Deploy to server
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
@@ -70,21 +62,22 @@ jobs:
           SERVER_PATH: ${{ secrets.SERVER_PATH }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ steps.image_tag.outputs.tag }}
         run: |
-          echo "Pulling image: $REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:$IMAGE_TAG"
+          echo "Pulling image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
           ssh -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 $SERVER_USER@$SERVER_HOST "set -e && \
             cd $SERVER_PATH && \
             echo '$GITHUB_TOKEN' | docker login $REGISTRY -u ${{ github.actor }} --password-stdin && \
-            docker pull '$REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:$IMAGE_TAG' && \
+            docker pull '$REGISTRY/$IMAGE_NAME:$IMAGE_TAG' && \
             if [ -f docker-compose.yml ]; then \
               cp docker-compose.yml docker-compose.yml.backup && \
-              sed -i 's|image:.*|image: $REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:$IMAGE_TAG|g' docker-compose.yml; \
+              sed -i 's|image:.*|image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG|g' docker-compose.yml; \
             fi && \
             docker compose pull && \
             docker compose up -d --force-recreate && \
             docker image prune -f && \
-            echo 'Deployed $REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:$IMAGE_TAG to ${{ inputs.environment }}'"
+            echo 'Deployed $REGISTRY/$IMAGE_NAME:$IMAGE_TAG to ${{ inputs.environment }}'"
 
       - name: Health check
         run: |

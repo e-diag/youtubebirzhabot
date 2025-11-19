@@ -20,7 +20,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: e-diag/youtubebirzhabot
 
 jobs:
   build-and-push:
@@ -44,19 +44,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Convert image name to lowercase
-        id: image_name
-        run: |
-          IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
-          echo "Converting: ${{ env.IMAGE_NAME }} -> $IMAGE_NAME_LOWER"
-          echo "image_name_lower=$IMAGE_NAME_LOWER" >> $GITHUB_OUTPUT
-          echo "Converted image name: $IMAGE_NAME_LOWER"
-
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ steps.image_name.outputs.image_name_lower }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -112,16 +104,16 @@ jobs:
           SERVER_PATH: ${{ secrets.SERVER_PATH }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_NAME_LOWER: ${{ steps.image_name.outputs.image_name_lower }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
         run: |
-          echo "Pulling image: $REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:latest"
+          echo "Pulling image: $REGISTRY/$IMAGE_NAME:latest"
           ssh -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 $SERVER_USER@$SERVER_HOST "set -e && \
             cd $SERVER_PATH && \
             echo '$GITHUB_TOKEN' | docker login $REGISTRY -u ${{ github.actor }} --password-stdin && \
-            docker pull '$REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:latest' || true && \
+            docker pull '$REGISTRY/$IMAGE_NAME:latest' || true && \
             if [ -f docker-compose.yml ]; then \
               cp docker-compose.yml docker-compose.yml.backup && \
-              sed -i 's|build: \.|image: $REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:latest|g' docker-compose.yml; \
+              sed -i 's|build: \.|image: $REGISTRY/$IMAGE_NAME:latest|g' docker-compose.yml; \
             fi && \
             docker compose pull && \
             docker compose up -d --force-recreate && \
