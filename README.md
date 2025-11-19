@@ -23,7 +23,7 @@
    export SERVER_HOST=your-server.com
    export SERVER_USER=root
    export SERVER_PATH=/root/youtube-market
-   export GITHUB_TOKEN=your_github_token
+   export GITHUB_TOKEN=your_github_token  # ⚠️ Замените на реальный токен, это только пример!
    
    ./scripts/deploy.sh [tag]
    ```

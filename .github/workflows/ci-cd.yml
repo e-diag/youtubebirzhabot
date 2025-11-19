@@ -128,6 +128,7 @@ jobs:
             echo 'Deployment completed successfully!'"
 
       - name: Health check
+        if: ${{ secrets.SERVER_URL }}
         run: |
           sleep 10
           curl -f ${{ secrets.SERVER_URL }}/health || exit 1

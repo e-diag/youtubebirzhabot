@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: youtube_market
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-youtube_market}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     ports:
       - "5432:5432"
@@ -51,7 +51,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/youtube_market?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-youtube_market}?sslmode=disable}
       REDIS_URL: redis://redis:6379/0
       PORT: 8080
       GIN_MODE: release

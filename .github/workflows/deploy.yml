@@ -87,6 +87,7 @@ jobs:
             echo 'Deployed \$IMAGE_FULL to ${{ inputs.environment }}'"
 
       - name: Health check
+        if: ${{ secrets.SERVER_URL }}
         run: |
           sleep 10
           curl -f ${{ secrets.SERVER_URL }}/health || exit 1
