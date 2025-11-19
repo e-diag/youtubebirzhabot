@@ -16,7 +16,7 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    command: postgres -c max_connections=200 -c shared_buffers=256MB
+    command: postgres -c max_connections=200 -c shared_buffers=256MB -c log_connections=on -c log_disconnections=on
 
   redis:
     image: redis:7-alpine
