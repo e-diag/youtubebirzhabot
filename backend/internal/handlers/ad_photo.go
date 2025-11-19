@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 	"youtube-market/internal/db"
 	"youtube-market/internal/metrics"
@@ -49,7 +51,7 @@ func GetAdPhoto(c *gin.Context) {
 	metrics.DatabaseQueryDuration.WithLabelValues("select").Observe(time.Since(queryStart).Seconds())
 
 	if ad.PhotoPath == "" {
-		log.Printf("GetAdPhoto: объявление ID=%d не имеет фото", id)
+		log.Printf("GetAdPhoto: объявление ID=%d не имеет фото (PhotoPath пустой)", id)
 		metrics.APIRequestsTotal.WithLabelValues("ad_photo", "404").Inc()
 		c.Status(http.StatusNotFound)
 		return
@@ -64,13 +66,65 @@ func GetAdPhoto(c *gin.Context) {
 		return
 	}
 
-	url := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", token, ad.PhotoPath)
-	log.Printf("GetAdPhoto: запрос фото из Telegram API: %s", url)
+	// Определяем путь к файлу
+	var photoPath string
+	var photoURL string
+
+	if ad.PhotoPath != "" {
+		// Используем PhotoPath (новый формат)
+		photoPath = ad.PhotoPath
+		// Убеждаемся, что путь не начинается с "/"
+		if strings.HasPrefix(photoPath, "/") {
+			photoPath = strings.TrimPrefix(photoPath, "/")
+		}
+		photoURL = fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", token, photoPath)
+		log.Printf("GetAdPhoto: используем PhotoPath для объявления ID=%d, PhotoPath=%s", id, ad.PhotoPath)
+	} else if ad.PhotoID != "" {
+		// Fallback: если PhotoPath пустой, но есть PhotoID, используем PhotoID напрямую
+		// Telegram API позволяет получить файл по FileID через специальный endpoint
+		// Но лучше использовать getFile для получения пути
+		log.Printf("GetAdPhoto: PhotoPath пустой, но есть PhotoID=%s для объявления ID=%d, пытаемся получить путь через getFile", ad.PhotoID, id)
+		
+		// Пытаемся получить путь через getFile API
+		getFileURL := fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", token, ad.PhotoID)
+		resp, err := http.Get(getFileURL)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			defer resp.Body.Close()
+			var result struct {
+				OK     bool `json:"ok"`
+				Result struct {
+					FilePath string `json:"file_path"`
+				} `json:"result"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&result); err == nil && result.OK && result.Result.FilePath != "" {
+				photoPath = result.Result.FilePath
+				photoURL = fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", token, photoPath)
+				log.Printf("GetAdPhoto: успешно получен путь через getFile: PhotoPath=%s", photoPath)
+			} else {
+				log.Printf("GetAdPhoto: не удалось получить путь через getFile для PhotoID=%s", ad.PhotoID)
+				metrics.APIRequestsTotal.WithLabelValues("ad_photo", "404").Inc()
+				c.Status(http.StatusNotFound)
+				return
+			}
+		} else {
+			log.Printf("GetAdPhoto: ошибка при запросе getFile для PhotoID=%s: %v", ad.PhotoID, err)
+			metrics.APIRequestsTotal.WithLabelValues("ad_photo", "404").Inc()
+			c.Status(http.StatusNotFound)
+			return
+		}
+	} else {
+		log.Printf("GetAdPhoto: объявление ID=%d не имеет ни PhotoPath, ни PhotoID", id)
+		metrics.APIRequestsTotal.WithLabelValues("ad_photo", "404").Inc()
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	log.Printf("GetAdPhoto: запрос фото из Telegram API для объявления ID=%d, URL=%s", id, photoURL)
 	
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
-	resp, err := client.Get(url)
+	resp, err := client.Get(photoURL)
 	if err != nil {
 		log.Printf("GetAdPhoto: ошибка при запросе к Telegram API: %v", err)
 		middleware.CaptureError(c, err, map[string]string{
@@ -87,13 +141,24 @@ func GetAdPhoto(c *gin.Context) {
 	defer resp.Body.Close()
 	
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("GetAdPhoto: Telegram API вернул статус %d для объявления ID=%d", resp.StatusCode, id)
+		log.Printf("GetAdPhoto: Telegram API вернул статус %d для объявления ID=%d, PhotoPath=%s", resp.StatusCode, id, ad.PhotoPath)
+		
+		// Если файл не найден (404), возвращаем 404, а не 502
+		if resp.StatusCode == http.StatusNotFound {
+			log.Printf("GetAdPhoto: файл не найден в Telegram, возможно был удален. Объявление ID=%d, PhotoPath=%s", id, ad.PhotoPath)
+			metrics.APIRequestsTotal.WithLabelValues("ad_photo", "404").Inc()
+			metrics.ErrorsTotal.WithLabelValues("external_api", "ad_photo").Inc()
+			c.Status(http.StatusNotFound)
+			return
+		}
+		
+		// Для других ошибок возвращаем 502
 		middleware.CaptureError(c, fmt.Errorf("telegram API returned status %d", resp.StatusCode), map[string]string{
-			"handler":    "GetAdPhoto",
-			"ad_id":      strconv.Itoa(id),
-			"error_type": "external_api",
+			"handler":     "GetAdPhoto",
+			"ad_id":       strconv.Itoa(id),
+			"error_type":  "external_api",
 			"status_code": strconv.Itoa(resp.StatusCode),
-			"photo_path": ad.PhotoPath,
+			"photo_path":  ad.PhotoPath,
 		})
 		metrics.APIRequestsTotal.WithLabelValues("ad_photo", "502").Inc()
 		metrics.ErrorsTotal.WithLabelValues("external_api", "ad_photo").Inc()

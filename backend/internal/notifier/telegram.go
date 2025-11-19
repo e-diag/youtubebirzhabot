@@ -3,6 +3,7 @@ package notifier
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 	"youtube-market/internal/logger"
 
@@ -50,24 +51,50 @@ func NotifyError(message string, err error, context map[string]interface{}) {
 		return
 	}
 
+	// Экранируем специальные символы Markdown для безопасного отображения
+	escapeMarkdown := func(s string) string {
+		// Экранируем специальные символы Markdown
+		replacer := strings.NewReplacer(
+			"_", "\\_",
+			"*", "\\*",
+			"[", "\\[",
+			"]", "\\]",
+			"(", "\\(",
+			")", "\\)",
+			"~", "\\~",
+			"`", "\\`",
+			">", "\\>",
+			"#", "\\#",
+			"+", "\\+",
+			"-", "\\-",
+			"=", "\\=",
+			"|", "\\|",
+			"{", "\\{",
+			"}", "\\}",
+			".", "\\.",
+			"!", "\\!",
+		)
+		return replacer.Replace(s)
+	}
+
 	text := fmt.Sprintf("🚨 *Ошибка в приложении*\n\n")
-	text += fmt.Sprintf("*Сообщение:* %s\n", message)
+	text += fmt.Sprintf("*Сообщение:* %s\n", escapeMarkdown(message))
 
 	if err != nil {
-		text += fmt.Sprintf("*Ошибка:* `%s`\n", err.Error())
+		text += fmt.Sprintf("*Ошибка:* `%s`\n", escapeMarkdown(err.Error()))
 	}
 
 	if context != nil {
 		text += "\n*Контекст:*\n"
 		for k, v := range context {
-			text += fmt.Sprintf("• %s: `%v`\n", k, v)
+			text += fmt.Sprintf("• %s: `%s`\n", escapeMarkdown(k), escapeMarkdown(fmt.Sprintf("%v", v)))
 		}
 	}
 
 	text += fmt.Sprintf("\n*Время:* %s", time.Now().Format("2006-01-02 15:04:05"))
 
 	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "Markdown"
+	msg.ParseMode = "MarkdownV2"
 	msg.DisableWebPagePreview = true
 
 	if _, sendErr := bot.Send(msg); sendErr != nil {
@@ -81,18 +108,28 @@ func NotifyWarning(message string, context map[string]interface{}) {
 		return
 	}
 
+	// Экранируем специальные символы Markdown
+	escapeMarkdown := func(s string) string {
+		replacer := strings.NewReplacer(
+			"_", "\\_", "*", "\\*", "[", "\\[", "]", "\\]", "(", "\\(", ")", "\\)",
+			"~", "\\~", "`", "\\`", ">", "\\>", "#", "\\#", "+", "\\+", "-", "\\-",
+			"=", "\\=", "|", "\\|", "{", "\\{", "}", "\\}", ".", "\\.", "!", "\\!",
+		)
+		return replacer.Replace(s)
+	}
+
 	text := fmt.Sprintf("⚠️ *Предупреждение*\n\n")
-	text += fmt.Sprintf("*Сообщение:* %s\n", message)
+	text += fmt.Sprintf("*Сообщение:* %s\n", escapeMarkdown(message))
 
 	if context != nil {
 		text += "\n*Контекст:*\n"
 		for k, v := range context {
-			text += fmt.Sprintf("• %s: `%v`\n", k, v)
+			text += fmt.Sprintf("• %s: `%s`\n", escapeMarkdown(k), escapeMarkdown(fmt.Sprintf("%v", v)))
 		}
 	}
 
 	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "Markdown"
+	msg.ParseMode = "MarkdownV2"
 	msg.DisableWebPagePreview = true
 
 	if _, err := bot.Send(msg); err != nil {
@@ -106,18 +143,28 @@ func NotifyInfo(message string, context map[string]interface{}) {
 		return
 	}
 
+	// Экранируем специальные символы Markdown
+	escapeMarkdown := func(s string) string {
+		replacer := strings.NewReplacer(
+			"_", "\\_", "*", "\\*", "[", "\\[", "]", "\\]", "(", "\\(", ")", "\\)",
+			"~", "\\~", "`", "\\`", ">", "\\>", "#", "\\#", "+", "\\+", "-", "\\-",
+			"=", "\\=", "|", "\\|", "{", "\\{", "}", "\\}", ".", "\\.", "!", "\\!",
+		)
+		return replacer.Replace(s)
+	}
+
 	text := fmt.Sprintf("ℹ️ *Информация*\n\n")
-	text += fmt.Sprintf("*Сообщение:* %s\n", message)
+	text += fmt.Sprintf("*Сообщение:* %s\n", escapeMarkdown(message))
 
 	if context != nil {
 		text += "\n*Контекст:*\n"
 		for k, v := range context {
-			text += fmt.Sprintf("• %s: `%v`\n", k, v)
+			text += fmt.Sprintf("• %s: `%s`\n", escapeMarkdown(k), escapeMarkdown(fmt.Sprintf("%v", v)))
 		}
 	}
 
 	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "Markdown"
+	msg.ParseMode = "MarkdownV2"
 	msg.DisableWebPagePreview = true
 
 	if _, err := bot.Send(msg); err != nil {
