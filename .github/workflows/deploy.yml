@@ -87,8 +87,13 @@ jobs:
             echo 'Deployed \$IMAGE_FULL to ${{ inputs.environment }}'"
 
       - name: Health check
-        if: ${{ secrets.SERVER_URL }}
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
         run: |
-          sleep 10
-          curl -f ${{ secrets.SERVER_URL }}/health || exit 1
+          if [ -n "$SERVER_URL" ]; then
+            sleep 10
+            curl -f "$SERVER_URL/health" || exit 1
+          else
+            echo "SERVER_URL not set, skipping health check"
+          fi
 
