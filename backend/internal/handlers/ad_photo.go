@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -19,11 +20,14 @@ func GetAdPhoto(c *gin.Context) {
 	start := time.Now()
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
+		log.Printf("GetAdPhoto: invalid ad id: %v", err)
 		metrics.APIRequestsTotal.WithLabelValues("ad_photo", "400").Inc()
 		metrics.ErrorsTotal.WithLabelValues("validation", "ad_photo").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ad id"})
 		return
 	}
+	
+	log.Printf("GetAdPhoto: запрос фото для объявления ID=%d", id)
 
 	queryStart := time.Now()
 	var ad models.Ad
@@ -45,6 +49,7 @@ func GetAdPhoto(c *gin.Context) {
 	metrics.DatabaseQueryDuration.WithLabelValues("select").Observe(time.Since(queryStart).Seconds())
 
 	if ad.PhotoPath == "" {
+		log.Printf("GetAdPhoto: объявление ID=%d не имеет фото", id)
 		metrics.APIRequestsTotal.WithLabelValues("ad_photo", "404").Inc()
 		c.Status(http.StatusNotFound)
 		return
@@ -52,6 +57,7 @@ func GetAdPhoto(c *gin.Context) {
 
 	token := getBotToken()
 	if token == "" {
+		log.Printf("GetAdPhoto: BOT_TOKEN не установлен")
 		metrics.APIRequestsTotal.WithLabelValues("ad_photo", "500").Inc()
 		metrics.ErrorsTotal.WithLabelValues("config", "ad_photo").Inc()
 		c.Status(http.StatusNotFound)
@@ -59,15 +65,19 @@ func GetAdPhoto(c *gin.Context) {
 	}
 
 	url := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", token, ad.PhotoPath)
-	resp, err := http.Get(url)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		if resp != nil {
-			resp.Body.Close()
-		}
+	log.Printf("GetAdPhoto: запрос фото из Telegram API: %s", url)
+	
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	resp, err := client.Get(url)
+	if err != nil {
+		log.Printf("GetAdPhoto: ошибка при запросе к Telegram API: %v", err)
 		middleware.CaptureError(c, err, map[string]string{
-			"handler":   "GetAdPhoto",
-			"ad_id":     strconv.Itoa(id),
+			"handler":    "GetAdPhoto",
+			"ad_id":      strconv.Itoa(id),
 			"error_type": "external_api",
+			"photo_path": ad.PhotoPath,
 		})
 		metrics.APIRequestsTotal.WithLabelValues("ad_photo", "502").Inc()
 		metrics.ErrorsTotal.WithLabelValues("external_api", "ad_photo").Inc()
@@ -75,7 +85,23 @@ func GetAdPhoto(c *gin.Context) {
 		return
 	}
 	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("GetAdPhoto: Telegram API вернул статус %d для объявления ID=%d", resp.StatusCode, id)
+		middleware.CaptureError(c, fmt.Errorf("telegram API returned status %d", resp.StatusCode), map[string]string{
+			"handler":    "GetAdPhoto",
+			"ad_id":      strconv.Itoa(id),
+			"error_type": "external_api",
+			"status_code": strconv.Itoa(resp.StatusCode),
+			"photo_path": ad.PhotoPath,
+		})
+		metrics.APIRequestsTotal.WithLabelValues("ad_photo", "502").Inc()
+		metrics.ErrorsTotal.WithLabelValues("external_api", "ad_photo").Inc()
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch photo"})
+		return
+	}
 
+	// Устанавливаем заголовки перед копированием тела
 	for k, values := range resp.Header {
 		if len(values) == 0 {
 			continue
@@ -86,9 +112,19 @@ func GetAdPhoto(c *gin.Context) {
 		}
 	}
 
+	// Устанавливаем статус и копируем тело ответа
+	c.Status(http.StatusOK)
+	
+	// Копируем тело ответа
+	bytesCopied, err := io.Copy(c.Writer, resp.Body)
+	if err != nil {
+		log.Printf("GetAdPhoto: ошибка при копировании тела ответа: %v", err)
+		// Не возвращаем ошибку клиенту, так как заголовки уже отправлены
+		return
+	}
+	
+	log.Printf("GetAdPhoto: успешно отправлено %d байт для объявления ID=%d", bytesCopied, id)
 	metrics.APIRequestsTotal.WithLabelValues("ad_photo", "200").Inc()
 	metrics.APIReponseTime.WithLabelValues("ad_photo").Observe(time.Since(start).Seconds())
-	c.Status(http.StatusOK)
-	_, _ = io.Copy(c.Writer, resp.Body)
 }
 

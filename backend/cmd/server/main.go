@@ -35,6 +35,18 @@ func main() {
 	// Initialize Telegram notifications
 	if err := notifier.Init(); err != nil {
 		log.Printf("Warning: Failed to initialize Telegram notifications: %v", err)
+	} else {
+		// Отправляем уведомление о запуске сервера
+		notifier.NotifyInfo("🚀 Сервер запущен", map[string]interface{}{
+			"port": func() string {
+				port := os.Getenv("PORT")
+				if port == "" {
+					return "8080"
+				}
+				return port
+			}(),
+			"time": time.Now().Format("2006-01-02 15:04:05"),
+		})
 	}
 
 	// Initialize database
@@ -71,8 +83,19 @@ func main() {
 		"port": port,
 	})
 	log.Printf("Server starting on port %s", port)
+	
+	// Отправляем уведомление о готовности сервера
+	notifier.NotifyInfo("✅ Сервер готов к работе", map[string]interface{}{
+		"port": port,
+		"time": time.Now().Format("2006-01-02 15:04:05"),
+		"version": os.Getenv("APP_VERSION"),
+	})
+	
 	if err := r.Run(":" + port); err != nil {
 		logger.Fatal("Failed to start server", err, nil)
+		notifier.NotifyError("❌ Сервер остановлен с ошибкой", err, map[string]interface{}{
+			"port": port,
+		})
 	}
 }
 
