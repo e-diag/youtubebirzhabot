@@ -20,7 +20,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/${{ github.event.repository.name }}
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
@@ -48,7 +48,9 @@ jobs:
         id: image_name
         run: |
           IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          echo "Converting: ${{ env.IMAGE_NAME }} -> $IMAGE_NAME_LOWER"
           echo "image_name_lower=$IMAGE_NAME_LOWER" >> $GITHUB_OUTPUT
+          echo "Converted image name: $IMAGE_NAME_LOWER"
 
       - name: Extract metadata
         id: meta
@@ -112,10 +114,11 @@ jobs:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_NAME_LOWER: ${{ steps.image_name.outputs.image_name_lower }}
         run: |
+          echo "Pulling image: $REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:latest"
           ssh -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 $SERVER_USER@$SERVER_HOST "set -e && \
             cd $SERVER_PATH && \
             echo '$GITHUB_TOKEN' | docker login $REGISTRY -u ${{ github.actor }} --password-stdin && \
-            docker pull $REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:latest || true && \
+            docker pull '$REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:latest' || true && \
             if [ -f docker-compose.yml ]; then \
               cp docker-compose.yml docker-compose.yml.backup && \
               sed -i 's|build: \.|image: $REGISTRY/${{ steps.image_name.outputs.image_name_lower }}:latest|g' docker-compose.yml; \
