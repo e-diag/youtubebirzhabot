@@ -106,15 +106,22 @@ jobs:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
         run: |
-          echo "Pulling image: $REGISTRY/$IMAGE_NAME:latest"
+          echo "Pulling image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
           ssh -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 $SERVER_USER@$SERVER_HOST "set -e && \
             cd $SERVER_PATH && \
-            echo '$GITHUB_TOKEN' | docker login $REGISTRY -u ${{ github.actor }} --password-stdin && \
-            docker pull '$REGISTRY/$IMAGE_NAME:latest' || true && \
+            echo '$GITHUB_TOKEN' | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin && \
+            docker pull '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest' || true && \
             if [ -f docker-compose.yml ]; then \
               cp docker-compose.yml docker-compose.yml.backup && \
-              sed -i 's|build: \.|image: $REGISTRY/$IMAGE_NAME:latest|g' docker-compose.yml; \
+              IMAGE_FULL='${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest' && \
+              sed -i \"s|build: \\.|image: \$IMAGE_FULL|g\" docker-compose.yml && \
+              sed -i \"s|image:.*youtubebirzha.*|image: \$IMAGE_FULL|g\" docker-compose.yml && \
+              sed -i \"s|image:.*e-Diag.*|image: \$IMAGE_FULL|g\" docker-compose.yml && \
+              sed -i \"s|image:.*e-diag.*youtubebirzha.*|image: \$IMAGE_FULL|g\" docker-compose.yml && \
+              sed -i \"/app:/,/^[[:space:]]*[a-z-]*:/ { /image:/ s|image:.*|image: \$IMAGE_FULL|; }\" docker-compose.yml; \
             fi && \
+            echo 'Updated docker-compose.yml, checking app service:' && \
+            grep -A 10 '^[[:space:]]*app:' docker-compose.yml | head -15 || true && \
             docker compose pull && \
             docker compose up -d --force-recreate && \
             docker image prune -f && \
