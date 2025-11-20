@@ -137,6 +137,50 @@ func NotifyWarning(message string, context map[string]interface{}) {
 	}
 }
 
+// NotifySecurityAlert отправляет критическое уведомление о безопасности
+func NotifySecurityAlert(message string, details map[string]interface{}) {
+	if !initialized {
+		return
+	}
+
+	// Экранируем специальные символы Markdown
+	escapeMarkdown := func(s string) string {
+		replacer := strings.NewReplacer(
+			"_", "\\_", "*", "\\*", "[", "\\[", "]", "\\]", "(", "\\(", ")", "\\)",
+			"~", "\\~", "`", "\\`", ">", "\\>", "#", "\\#", "+", "\\+", "-", "\\-",
+			"=", "\\=", "|", "\\|", "{", "\\{", "}", "\\}", ".", "\\.", "!", "\\!",
+		)
+		return replacer.Replace(s)
+	}
+
+	text := fmt.Sprintf("🔴 *КРИТИЧЕСКОЕ СОБЫТИЕ БЕЗОПАСНОСТИ*\n\n")
+	text += fmt.Sprintf("*Сообщение:* %s\n", escapeMarkdown(message))
+
+	if details != nil {
+		text += "\n*Детали:*\n"
+		for k, v := range details {
+			text += fmt.Sprintf("• %s: `%s`\n", escapeMarkdown(k), escapeMarkdown(fmt.Sprintf("%v", v)))
+		}
+	}
+
+	text += fmt.Sprintf("\n*Время:* %s", time.Now().Format("2006-01-02 15:04:05"))
+	text += "\n\n⚠️ *Требуется немедленная проверка сервера!*"
+
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "MarkdownV2"
+	msg.DisableWebPagePreview = true
+
+	// Отправляем несколько раз для надежности
+	for i := 0; i < 3; i++ {
+		if _, err := bot.Send(msg); err == nil {
+			break
+		}
+		if i < 2 {
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
 // NotifyInfo отправляет информационное сообщение в Telegram
 func NotifyInfo(message string, context map[string]interface{}) {
 	if !initialized {

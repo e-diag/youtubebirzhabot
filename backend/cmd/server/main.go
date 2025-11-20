@@ -11,6 +11,7 @@ import (
 	"youtube-market/internal/middleware"
 	"youtube-market/internal/models"
 	"youtube-market/internal/notifier"
+	"youtube-market/internal/security"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -72,6 +73,15 @@ func main() {
 
 	// Start metrics collection in background
 	go collectMetrics()
+
+	// Start security monitoring in background
+	security.StartPostgresLogMonitoring()
+	
+	// Проверяем логи на прошлые атаки при старте
+	go func() {
+		time.Sleep(5 * time.Second) // Ждем, пока все инициализируется
+		security.CheckRecentSecurityEvents()
+	}()
 
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
