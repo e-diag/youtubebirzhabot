@@ -12,6 +12,8 @@ services:
     #   - "5432:5432"
     volumes:
       - /root/youtube-market/pgdata:/var/lib/postgresql/data
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -28,6 +30,9 @@ services:
       -c log_min_messages=warning
       -c allow_system_table_mods=off
       -c shared_preload_libraries=''
+      -c hba_file=/etc/postgresql/pg_hba.conf
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c password_encryption=md5
 
   redis:
     image: redis:7-alpine

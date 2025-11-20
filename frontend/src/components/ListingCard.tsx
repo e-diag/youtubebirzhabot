@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Flame, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Button } from './ui/button';
+import { Linkify } from '../utils/linkify';
 
 const MANAGER_LINK = 'https://t.me/birzha_manager';
 
@@ -218,7 +219,7 @@ export function ListingCard({ listing, footer, showExpiryDate = false, showFullD
         <div className="flex flex-col gap-1">
           <h3 className="text-base font-semibold break-words">{listing.title}</h3>
           <div className="relative">
-            <p
+            <div
               ref={descriptionRef}
               className="text-muted-foreground text-sm transition-all"
               style={isExpanded ? { 
@@ -235,8 +236,8 @@ export function ListingCard({ listing, footer, showExpiryDate = false, showFullD
                 maxHeight: '4.5em' // Примерно 3 строки
               }}
             >
-              {listing.description}
-            </p>
+              <Linkify text={listing.description} />
+            </div>
             {shouldShowExpand && (
               <Button
                 variant="ghost"
